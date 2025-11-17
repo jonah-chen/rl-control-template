@@ -4,13 +4,12 @@ agent: EQRC
 problem: MountainCar
 total_steps: 200000
 episode_cutoff: 5000
-idx: 0
 metaParameters:
   epsilon: 0.1
   buffer_type: uniform
   buffer_size: 4000
   batch: 32
-  n_step: 3
+  n_step: 1
   optimizer:
     name: ADAM
     alpha: 0.001
@@ -19,5 +18,5 @@ metaParameters:
   representation:
     type: MlpWithRelu
     hidden: 32
-    num_layers: 4
+    num_layers: 2
 

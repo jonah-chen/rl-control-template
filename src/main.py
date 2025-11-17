@@ -8,6 +8,7 @@ sys.path.append(str(PROJECT_ROOT))
 import time
 import socket
 import logging
+import csv
 import numpy as np
 import jax
 import hydra
@@ -66,6 +67,10 @@ def main(cfg: DictConfig):
         logger.setLevel(logging.DEBUG)
 
     writer = SummaryWriter(log_dir=str(save_root))
+    csv_path = save_root / 'metrics.csv'
+    csv_file = csv_path.open('w', newline='')
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(['step', 'return'])
 
     # ----------------------
     # -- Experiment Def'n --
@@ -119,7 +124,8 @@ def main(cfg: DictConfig):
         chk.maybe_save()
         interaction = glue.step()
 
-        if interaction.term or (exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff):
+        should_end = interaction.term or (exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff)
+        if should_end or exp.total_steps - glue.total_steps <= 1:
             agent.cleanup()
 
             collector.collect('return', glue.total_reward)
@@ -135,10 +141,15 @@ def main(cfg: DictConfig):
             logger.debug(f'{episode} {step} {glue.total_reward} {avg_time:.4}ms {int(fps)}')
             writer.add_scalar('Return', glue.total_reward, global_step=step)
             writer.add_scalar('Steps per Second', fps, global_step=step)
+            csv_writer.writerow([step, glue.total_reward])
 
-            glue.start()
+            if should_end:
+                glue.start()
+            else:
+                break
 
     collector.reset()
+    csv_file.close()
 
     context = exp.buildSaveContext(idx, base=str(save_root))
     save_path = context.resolve('results.db')

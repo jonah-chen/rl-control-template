@@ -10,9 +10,10 @@ silent: false
 gpu: false
 exp_path: null
 
+
 hydra:
   launcher:
-    n_jobs: 32        # run with 32 CPUs
+    n_jobs: 24        # run with 32 CPUs
 
   sweep:
     # one subdir per (hidden, num_layers, seed) combo
@@ -21,5 +22,5 @@ hydra:
   sweeper:
     params:
       seed: 1,11,21,31,41,51,61,71,81,91
-      experiment.metaParameters.representation.hidden: 16,32,75
-      experiment.metaParameters.representation.num_layers: 1,2,3
+      experiment.metaParameters.representation.hidden: 8,16,32,64,128
+      experiment.metaParameters.representation.num_layers: 1,2,3,4
