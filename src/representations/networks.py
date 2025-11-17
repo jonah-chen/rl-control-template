@@ -75,16 +75,41 @@ def reluLayers(layers: List[int], name: Optional[str] = None):
 
     return out
 
+def residualMlpLayers(layers: List[int], name: Optional[str] = None):
+    w_init = hk.initializers.Orthogonal(np.sqrt(2))
+    b_init = hk.initializers.Constant(0)
+
+    out = []
+    for width in layers:
+        def _residual(x: jax.Array):
+            # if the input and output width differ, project input
+            in_width = x.shape[-1]
+            if in_width != width:
+                x_res = hk.Linear(width, w_init=w_init, b_init=b_init, name=name)(x)
+            else:
+                x_res = x
+            h = hk.Linear(width, w_init=w_init, b_init=b_init, name=name)(x)
+            h = jax.nn.relu(h)
+            h = hk.Linear(width, w_init=w_init, b_init=b_init, name=name)(h)
+            return x_res + h
+
+        out.append(_residual)
+        out.append(jax.nn.relu)
+
+    return out
+
 def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
     def _inner(x: jax.Array):
         name = params['type']
         hidden = params['hidden']
+        num_layers = params['num_layers']
 
-        if name == 'TwoLayerRelu':
-            layers = reluLayers([hidden, hidden], name='phi')
+        if name == 'MlpWithRelu':
+            layers = reluLayers([hidden] * num_layers, name='phi')
 
-        elif name == 'OneLayerRelu':
-            layers = reluLayers([hidden], name='phi')
+        elif name == 'ResMlpWithRelu':
+            assert num_layers % 2 == 0, 'Number of layers for ResMlpWithRelu must be even'
+            layers = residualMlpLayers([hidden] * (num_layers // 2), name='phi')
 
         elif name == 'MinatarNet':
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -93,7 +118,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name='phi'),
             ]
-            layers += reluLayers([hidden], name='phi')
+            layers += reluLayers([hidden] * num_layers, name='phi')
 
         elif name == 'ForagerNet':
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -102,7 +127,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name='phi'),
             ]
-            layers += reluLayers([hidden], name='phi')
+            layers += reluLayers([hidden] * num_layers, name='phi')
 
         elif name == 'AtariNet':
             w_init = hk.initializers.Orthogonal(np.sqrt(2))

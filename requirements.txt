@@ -1,0 +1,21 @@
+# custom minatar with jit compiled environments
+gymnasium[accept-rom-license,atari]>=0.24.1
+pillow
+box2d-py>=2.3.2
+numba>=0.55.0
+chex>=0.1.5
+jax>=0.2.14
+dm-haiku>=0.0.4
+optax>=0.0.8
+numpy>=1.22.0
+PyFixedReps-andnp
+PyExpUtils-andnp
+pyrlenvs-andnp
+ReplayTables-andnp
+RlGlue-andnp
+PyExpPlotting-andnp
+RlEvaluation
+
+matplotlib
+flake8
+hydra-core>=1.3.2

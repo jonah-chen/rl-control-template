@@ -119,12 +119,13 @@ class EQRC(NNAgent):
 
 @partial(vmap_except, exclude=['epsilon'])
 def qc_loss(q, a, r, gamma, qtp1, h, epsilon):
-    pi = argmax_with_random_tie_breaking(qtp1)
+    # pi = argmax_with_random_tie_breaking(qtp1)
 
-    pi = (1.0 - epsilon) * pi + (epsilon / qtp1.shape[0])
-    pi = jax.lax.stop_gradient(pi)
+    # pi = (1.0 - epsilon) * pi + (epsilon / qtp1.shape[0])
+    # pi = jax.lax.stop_gradient(pi)
 
-    vtp1 = qtp1.dot(pi)
+    # vtp1 = qtp1.dot(pi)
+    vtp1 = qtp1.max(axis=-1)
     target = r + gamma * vtp1
     target = jax.lax.stop_gradient(target)
 

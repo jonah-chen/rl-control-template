@@ -39,10 +39,12 @@ pip install -r requirements.txt
 ```
 Every time you open a new shell, _make sure you have activated the correct virtual environment_.
 
-Now let's test your installation:
+To run your experiments, run
 ```bash
-python src/main.py -e experiments/example/MountainCar/EQRC.json -i 0
+python src/main.py -m
 ```
+You can change the sweep parameters in conf/episodic.yaml (at the very bottom), the parameter names should be self explainatory.
+
 This should start spitting out several columns of numbers. Something like:
 ```bash
 # episode number, total steps, return, time per step, frames per second
@@ -66,9 +68,11 @@ This is your primary command to do fast iteration of code. Make your changes, ca
 
 To do experiments with continuing tasks or Optuna hyperparameter tuning, use:
 ```bash
-python src/continuing_main.py -e experiments/continuing_example/Forager/EQRC.json -i  0
+python src/continuing_main.py experiment=continuing_example/Forager/EQRC idxs=0
 python src/optuna_tuning.py -e experiments/optuna_example/MountainCar/DQN.json -i 0
 ```
+
+Hydra configs for EQRC live under `conf/experiment`. Pass `experiment=<path>` to pick one of those YAML files or set `exp_path=/path/to/legacy.json` if you still need to run the old JSON descriptors.
 
 ---
 ## Set up on compute canada

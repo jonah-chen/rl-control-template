@@ -1,0 +1,23 @@
+config_path: experiment/example/MountainCar/EQRC
+name: example/MountainCar
+agent: EQRC
+problem: MountainCar
+total_steps: 1000000
+episode_cutoff: 5000
+idx: 0
+metaParameters:
+  epsilon: 0.1
+  buffer_type: uniform
+  buffer_size: 4000
+  batch: 32
+  n_step: 3
+  optimizer:
+    name: ADAM
+    alpha: 0.001
+    beta1: 0.9
+    beta2: 0.999
+  representation:
+    type: MlpWithRelu
+    hidden: 32
+    num_layers: 4
+

@@ -1,0 +1,25 @@
+defaults:
+  - experiment: example/MountainCar/EQRC
+  - _self_
+  - override hydra/launcher: joblib
+
+idxs: [0]
+save_path: null
+checkpoint_path: ./checkpoints/
+silent: false
+gpu: false
+exp_path: null
+
+hydra:
+  launcher:
+    n_jobs: 32        # up to 4 jobs in parallel
+
+  sweep:
+    # one subdir per (hidden, num_layers) combo
+    subdir: hidden=${experiment.metaParameters.representation.hidden},layers=${experiment.metaParameters.representation.num_layers}
+
+  sweeper:
+    params:
+      idxs: 0,1,2,3
+      experiment.metaParameters.representation.hidden: 16,32,75
+      experiment.metaParameters.representation.num_layers: 2,4,6

@@ -8,6 +8,7 @@ import argparse
 import dataclasses
 import PyExpUtils.runner.Slurm as Slurm
 import experiment.ExperimentModel as Experiment
+from omegaconf import OmegaConf
 
 from functools import partial
 from PyExpUtils.utils.generator import group
@@ -72,7 +73,15 @@ hours, minutes, seconds = slurm.time.split(':')
 total_hours = int(hours) + (int(minutes) / 60) + (int(seconds) / 3600)
 
 # gather missing
-missing = gather_missing_indices(cmdline.e, cmdline.runs, loader=Experiment.load)
+def load_any_experiment(path: str):
+    if path.endswith(('.yaml', '.yml')):
+        cfg = OmegaConf.load(path)
+        return Experiment.ExperimentModel.from_config(cfg, path)
+
+    return Experiment.load(path)
+
+
+missing = gather_missing_indices(cmdline.e, cmdline.runs, loader=load_any_experiment)
 
 # compute cost
 memory = Slurm.memory_in_mb(slurm.mem_per_core)
@@ -97,7 +106,12 @@ for path in missing:
 
         # build the executable string
         # instead of activating the venv every time, just use its python directly
-        runner = f'{venv}/.venv/bin/python {cmdline.entry} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i '
+        overrides = ' '.join([
+            f'exp_path={path}',
+            f'save_path={cmdline.results}',
+            f'checkpoint_path=$SCRATCH/checkpoints/{project_name}',
+        ])
+        runner = f'{venv}/.venv/bin/python {cmdline.entry} {overrides} idxs='
 
         # generate the gnu-parallel command for dispatching to many CPUs across server nodes
         parallel = Slurm.buildParallel(runner, l, sub)

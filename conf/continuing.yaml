@@ -1,0 +1,9 @@
+defaults:
+  - experiment: continuing_example/Forager/EQRC
+  - _self_
+
+idxs: [0]
+save_path: null
+checkpoint_path: ./checkpoints/
+silent: false
+exp_path: null

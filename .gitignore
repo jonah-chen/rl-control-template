@@ -24,3 +24,7 @@ test.json
 build
 build/
 **.egg-info/
+/multirun
+*.log
+/.hydra
+/outputs
