@@ -75,6 +75,18 @@ def reluLayers(layers: List[int], name: Optional[str] = None):
 
     return out
 
+def tanhLayers(layers: List[int], name: Optional[str] = None):
+    w_init = hk.initializers.Orthogonal(np.sqrt(2))
+    b_init = hk.initializers.Constant(0)
+
+    out = []
+    for width in layers:
+        out.append(hk.Linear(width, w_init=w_init, b_init=b_init, name=name))
+        out.append(jax.nn.tanh)
+
+    return out
+
+
 def residualMlpLayers(layers: List[int], name: Optional[str] = None):
     w_init = hk.initializers.Orthogonal(np.sqrt(2))
     b_init = hk.initializers.Constant(0)
@@ -106,6 +118,9 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
 
         if name == 'MlpWithRelu':
             layers = reluLayers([hidden] * num_layers, name='phi')
+
+        elif name == 'MlpWithTanh':
+            layers = tanhLayers([hidden] * num_layers, name='phi')
 
         elif name == 'ResMlpWithRelu':
             assert num_layers % 2 == 0, 'Number of layers for ResMlpWithRelu must be even'
