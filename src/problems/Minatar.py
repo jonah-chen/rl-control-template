@@ -5,8 +5,8 @@ from ml_instrumentation.Collector import Collector
 from experiment.ExperimentModel import ExperimentModel
 
 class MinatarProblem(BaseProblem):
-    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, game: str):
-        super().__init__(exp, idx, collector)
+    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int, game: str):
+        super().__init__(exp, idx, collector, seed)
 
         self.env = Minatar(game, self.seed)
         self.actions = self.env.env.num_actions()

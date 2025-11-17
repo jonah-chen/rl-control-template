@@ -68,9 +68,11 @@ This is your primary command to do fast iteration of code. Make your changes, ca
 
 To do experiments with continuing tasks or Optuna hyperparameter tuning, use:
 ```bash
-python src/continuing_main.py experiment=continuing_example/Forager/EQRC idxs=0
+python src/continuing_main.py experiment=continuing_example/Forager/EQRC seed=0
 python src/optuna_tuning.py -e experiments/optuna_example/MountainCar/DQN.json -i 0
 ```
+
+Each Hydra run now consumes exactly one `seed` (default `0`). Launch multi-seed sweeps with `-m seed=0,1,2` or by overriding `hydra.sweeper.params.seed` in `conf/episodic.yaml`.
 
 Hydra configs for EQRC live under `conf/experiment`. Pass `experiment=<path>` to pick one of those YAML files or set `exp_path=/path/to/legacy.json` if you still need to run the old JSON descriptors.
 

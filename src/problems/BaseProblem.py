@@ -8,7 +8,7 @@ from algorithms.registry import getAgent
 
 
 class BaseProblem:
-    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector):
+    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int):
         self.exp = exp
         self.idx = idx
 
@@ -23,7 +23,7 @@ class BaseProblem:
         self.env: Optional[BaseEnvironment] = None
         self.gamma: Optional[float] = None
 
-        self.seed = exp.getRun(idx)
+        self.seed = seed
 
         self.observations = (0,)
         self.actions = 0

@@ -10,7 +10,7 @@ import jax
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import get_original_cwd
-from omegaconf import DictConfig, ListConfig, OmegaConf
+from omegaconf import DictConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT))
@@ -27,17 +27,11 @@ from ml_instrumentation.utils import Pipe
 from ml_instrumentation.metadata import attach_metadata
 
 
-def _idxs_to_list(idxs_cfg: DictConfig | ListConfig | list[int] | int) -> list[int]:
-    if isinstance(idxs_cfg, (DictConfig, ListConfig)):
-        idxs = OmegaConf.to_container(idxs_cfg, resolve=True)
-    else:
-        idxs = idxs_cfg
-
-    if isinstance(idxs, list):
-        return [int(i) for i in idxs]
-    if isinstance(idxs, int):
-        return [int(idxs)]
-    raise ValueError('idxs must be an int or list of ints')
+def _require_seed(cfg: DictConfig) -> int:
+    seed_value = cfg.get('seed')
+    if seed_value is None:
+        raise ValueError('Set `seed` in your config; Hydra overrides are optional but the value must exist.')
+    return int(seed_value)
 
 
 @hydra.main(config_path='../conf', config_name='continuing', version_base=None)
@@ -79,74 +73,62 @@ def main(cfg: DictConfig):
         exp = load_experiment(exp_path)
     else:
         exp = ExperimentModel.from_config(cfg.experiment, cfg.experiment.get('config_path'))
-    indices = _idxs_to_list(cfg.idxs)
+
+    seed = _require_seed(cfg)
+    idx = seed
 
     Problem = getProblem(exp.problem)
-    for idx in indices:
-        chk = Checkpoint(exp, idx, base_path=cfg.checkpoint_path)
-        chk.load_if_exists()
-        timeout_handler.before_cancel(chk.save)
+    chk = Checkpoint(exp, idx, base_path=cfg.checkpoint_path)
+    chk.load_if_exists()
+    timeout_handler.before_cancel(chk.save)
 
-        collector = chk.build('collector', lambda: Collector(
-            # specify which keys to actually store and ultimately save
-            # Options are:
-            #  - Identity() (save everything)
-            #  - Window(n)  take a window average of size n
-            #  - Subsample(n) save one of every n elements
-            config={
-                'reward': Pipe(
-                    MovingAverage(0.999),
-                    Subsample(500),
-                ),
-            },
-            # by default, ignore keys that are not explicitly listed above
-            default=Ignore(),
-        ))
-        collector.set_experiment_id(idx)
-        run = exp.getRun(idx)
+    collector = chk.build('collector', lambda: Collector(
+        config={
+            'reward': Pipe(
+                MovingAverage(0.999),
+                Subsample(500),
+            ),
+        },
+        default=Ignore(),
+    ))
+    collector.set_experiment_id(idx)
 
-        # set random seeds accordingly
-        np.random.seed(run)
+    np.random.seed(seed)
 
-        # build stateful things and attach to checkpoint
-        problem = chk.build('p', lambda: Problem(exp, idx, collector))
-        agent = chk.build('a', problem.getAgent)
-        env = chk.build('e', problem.getEnvironment)
+    problem = chk.build('p', lambda: Problem(exp, idx, collector, seed))
+    agent = chk.build('a', problem.getAgent)
+    env = chk.build('e', problem.getEnvironment)
 
-        glue = chk.build('glue', lambda: RlGlue(agent, env))
+    glue = chk.build('glue', lambda: RlGlue(agent, env))
 
-        # Run the experiment
-        start_time = time.time()
+    start_time = time.time()
 
-        # if we haven't started yet, then make the first interaction
-        if glue.total_steps == 0:
-            glue.start()
+    if glue.total_steps == 0:
+        glue.start()
 
-        for step in range(glue.total_steps, exp.total_steps):
-            collector.next_frame()
-            chk.maybe_save()
-            interaction = glue.step()
+    for step in range(glue.total_steps, exp.total_steps):
+        collector.next_frame()
+        chk.maybe_save()
+        interaction = glue.step()
 
-            collector.collect('reward', interaction.reward)
+        collector.collect('reward', interaction.reward)
 
-            if step % 500 == 0 and step > 0:
-                avg_time = 1000 * (time.time() - start_time) / (step + 1)
-                fps = step / (time.time() - start_time)
+        if step % 500 == 0 and step > 0:
+            avg_time = 1000 * (time.time() - start_time) / (step + 1)
+            fps = step / (time.time() - start_time)
 
-                logger.debug(f'{step} {avg_time:.4}ms {int(fps)}')
+            logger.debug(f'{step} {avg_time:.4}ms {int(fps)}')
 
-        collector.reset()
-        # ------------
-        # -- Saving --
-        # ------------
-        context = exp.buildSaveContext(idx, base=str(save_root))
-        save_path = context.resolve('results.db')
-        meta = getParamsAsDict(exp, idx)
-        meta |= {'seed': exp.getRun(idx)}
-        attach_metadata(save_path, idx, meta)
-        collector.merge(context.resolve('results.db'))
-        collector.close()
-        chk.delete()
+    collector.reset()
+
+    context = exp.buildSaveContext(idx, base=str(save_root))
+    save_path = context.resolve('results.db')
+    meta = getParamsAsDict(exp, idx)
+    meta |= {'seed': seed}
+    attach_metadata(save_path, idx, meta)
+    collector.merge(context.resolve('results.db'))
+    collector.close()
+    chk.delete()
 
 
 if __name__ == '__main__':

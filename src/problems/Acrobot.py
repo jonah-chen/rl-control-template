@@ -5,8 +5,8 @@ from experiment.ExperimentModel import ExperimentModel
 from problems.BaseProblem import BaseProblem
 
 class Acrobot(BaseProblem):
-    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector):
-        super().__init__(exp, idx, collector)
+    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int):
+        super().__init__(exp, idx, collector, seed)
         self.env = Gym(name='Acrobot-v1', seed=self.seed, max_steps=500)
         self.actions = 3
 

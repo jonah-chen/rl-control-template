@@ -111,7 +111,7 @@ for path in missing:
             f'save_path={cmdline.results}',
             f'checkpoint_path=$SCRATCH/checkpoints/{project_name}',
         ])
-        runner = f'{venv}/.venv/bin/python {cmdline.entry} {overrides} idxs='
+        runner = f'{venv}/.venv/bin/python {cmdline.entry} {overrides} seed='
 
         # generate the gnu-parallel command for dispatching to many CPUs across server nodes
         parallel = Slurm.buildParallel(runner, l, sub)

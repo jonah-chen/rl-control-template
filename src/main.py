@@ -13,7 +13,7 @@ import jax
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import get_original_cwd
-from omegaconf import DictConfig, ListConfig, OmegaConf
+from omegaconf import DictConfig
 
 from rlglue import RlGlue
 from experiment.ExperimentModel import ExperimentModel, load as load_experiment
@@ -32,17 +32,11 @@ from torch.utils.tensorboard import SummaryWriter
 # ---------------------------
 # -- Library Configuration --
 # ---------------------------
-def _idxs_to_list(idxs_cfg: DictConfig | ListConfig | list[int] | int) -> list[int]:
-    if isinstance(idxs_cfg, (DictConfig, ListConfig)):
-        idxs = OmegaConf.to_container(idxs_cfg, resolve=True)
-    else:
-        idxs = idxs_cfg
-
-    if isinstance(idxs, list):
-        return [int(i) for i in idxs]
-    if isinstance(idxs, int):
-        return [int(idxs)]
-    raise ValueError('idxs must be an int or list of ints')
+def _require_seed(cfg: DictConfig) -> int:
+    seed_value = cfg.get('seed')
+    if seed_value is None:
+        raise ValueError('Set `seed` in your config; Hydra overrides are optional but the value must exist.')
+    return int(seed_value)
 
 
 @hydra.main(config_path='../conf', config_name='episodic', version_base=None)
@@ -83,95 +77,77 @@ def main(cfg: DictConfig):
         exp = load_experiment(exp_path)
     else:
         exp = ExperimentModel.from_config(cfg.experiment, cfg.experiment.get('config_path'))
-    indices = _idxs_to_list(cfg.idxs)
+
+    seed = _require_seed(cfg)
+    idx = seed
 
     Problem = getProblem(exp.problem)
-    for idx in indices:
-        chk = Checkpoint(exp, idx, base_path=cfg.checkpoint_path)
-        chk.load_if_exists()
-        timeout_handler.before_cancel(chk.save)
+    chk = Checkpoint(exp, idx, base_path=cfg.checkpoint_path)
+    chk.load_if_exists()
+    timeout_handler.before_cancel(chk.save)
 
-        collector = chk.build('collector', lambda: Collector(
-            # tmp_file='/mnt/i/tmp.db',
-            # specify which keys to actually store and ultimately save
-            # Options are:
-            #  - Identity() (save everything)
-            #  - Window(n)  take a window average of size n
-            #  - Subsample(n) save one of every n elements
-            config={
-                'return': Identity(),
-                'episode': Identity(),
-                'steps': Identity(),
-                'delta': Pipe(
-                    MovingAverage(0.99),
-                    Subsample(100),
-                ),
-            },
-            # by default, ignore keys that are not explicitly listed above
-            default=Ignore(),
-        ))
-        collector.set_experiment_id(idx)
-        run = exp.getRun(idx)
+    collector = chk.build('collector', lambda: Collector(
+        config={
+            'return': Identity(),
+            'episode': Identity(),
+            'steps': Identity(),
+            'delta': Pipe(
+                MovingAverage(0.99),
+                Subsample(100),
+            ),
+        },
+        default=Ignore(),
+    ))
+    collector.set_experiment_id(idx)
 
-        # set random seeds accordingly
-        np.random.seed(run)
+    np.random.seed(seed)
 
-        # build stateful things and attach to checkpoint
-        problem = chk.build('p', lambda: Problem(exp, idx, collector))
-        agent = chk.build('a', problem.getAgent)
-        env = chk.build('e', problem.getEnvironment)
+    problem = chk.build('p', lambda: Problem(exp, idx, collector, seed))
+    agent = chk.build('a', problem.getAgent)
+    env = chk.build('e', problem.getEnvironment)
 
-        glue = chk.build('glue', lambda: RlGlue(agent, env))
-        chk.initial_value('episode', 0)
+    glue = chk.build('glue', lambda: RlGlue(agent, env))
+    chk.initial_value('episode', 0)
 
-        # Run the experiment
-        start_time = time.time()
+    start_time = time.time()
 
-        # if we haven't started yet, then make the first interaction
-        if glue.total_steps == 0:
+    if glue.total_steps == 0:
+        glue.start()
+
+    for step in range(glue.total_steps, exp.total_steps):
+        collector.next_frame()
+        chk.maybe_save()
+        interaction = glue.step()
+
+        if interaction.term or (exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff):
+            agent.cleanup()
+
+            collector.collect('return', glue.total_reward)
+            collector.collect('episode', chk['episode'])
+            collector.collect('steps', glue.num_steps)
+
+            chk['episode'] += 1
+
+            avg_time = 1000 * (time.time() - start_time) / (step + 1)
+            fps = step / (time.time() - start_time)
+
+            episode = chk['episode']
+            logger.debug(f'{episode} {step} {glue.total_reward} {avg_time:.4}ms {int(fps)}')
+            writer.add_scalar('Return', glue.total_reward, global_step=step)
+            writer.add_scalar('Steps per Second', fps, global_step=step)
+
             glue.start()
 
-        for step in range(glue.total_steps, exp.total_steps):
-            collector.next_frame()
-            chk.maybe_save()
-            interaction = glue.step()
+    collector.reset()
 
-            if interaction.term or (exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff):
-                # allow agent to cleanup traces or other stateful episodic info
-                agent.cleanup()
-
-                # collect some data
-                collector.collect('return', glue.total_reward)
-                collector.collect('episode', chk['episode'])
-                collector.collect('steps', glue.num_steps)
-
-                # track how many episodes are completed (cutoff is counted as termination for this count)
-                chk['episode'] += 1
-
-                # compute the average time-per-step in ms
-                avg_time = 1000 * (time.time() - start_time) / (step + 1)
-                fps = step / (time.time() - start_time)
-
-                episode = chk['episode']
-                logger.debug(f'{episode} {step} {glue.total_reward} {avg_time:.4}ms {int(fps)}')
-                writer.add_scalar('Return', glue.total_reward, global_step=step)
-                writer.add_scalar('Steps per Second', fps, global_step=step)
-
-                glue.start()
-
-        collector.reset()
-
-        # ------------
-        # -- Saving --
-        # ------------
-        context = exp.buildSaveContext(idx, base=str(save_root))
-        save_path = context.resolve('results.db')
-        meta = getParamsAsDict(exp, idx)
-        meta |= {'seed': exp.getRun(idx)}
-        attach_metadata(save_path, idx, meta)
-        collector.merge(context.resolve('results.db'))
-        collector.close()
-        chk.delete()
+    context = exp.buildSaveContext(idx, base=str(save_root))
+    save_path = context.resolve('results.db')
+    meta = getParamsAsDict(exp, idx)
+    meta |= {'seed': seed}
+    attach_metadata(save_path, idx, meta)
+    collector.merge(context.resolve('results.db'))
+    collector.close()
+    chk.delete()
 
 
 if __name__ == '__main__':

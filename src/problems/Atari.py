@@ -15,8 +15,8 @@ def toGymStr(s: str):
     return upperFirst(s)
 
 class Atari(BaseProblem):
-    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector):
-        super().__init__(exp, idx, collector)
+    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int):
+        super().__init__(exp, idx, collector, seed)
 
         game = toGymStr(self.env_params['game'])
 
