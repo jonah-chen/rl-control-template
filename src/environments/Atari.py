@@ -12,7 +12,7 @@ gymnasium.register_envs(ale_py)
 
 class Atari(BaseEnvironment):
     def __init__(self, game: str, seed: int, max_steps: Optional[int] = None):
-        self.env = gymnasium.make(f'ALE/{game}-v5', max_episode_steps=max_steps, frameskip=None, repeat_action_probability=0.25)
+        self.env = gymnasium.make(f'ALE/{game}-v5', max_episode_steps=max_steps, frameskip=3, repeat_action_probability=0.25)
         # self.env = gym.make(f'ALE/{game}-v5', max_episode_steps=max_steps, render_mode='human')
         self.seed = seed
 

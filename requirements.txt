@@ -19,3 +19,5 @@ RlEvaluation
 matplotlib
 flake8
 hydra-core>=1.3.2
+hydra-joblib-launcher
+flax
