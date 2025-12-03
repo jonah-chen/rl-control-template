@@ -31,13 +31,14 @@ ANNUAL_ALLOCATION = 724
 # -------------------------------
 cwd = os.getcwd()
 project_name = os.path.basename(cwd)
-venv_origin = f'{cwd}/venv.tar.xz'
+venv_origin = f'{cwd}/venv_gpu.tar.xz'
 
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
 def getJobScript(parallel):
     return f"""#!/bin/bash
 #SBATCH --signal=B:SIGTERM@180
+#SBATCH --gpus=1
 
 mkdir -p $SLURM_TMPDIR/$SLURM_JOB_ID
 
@@ -49,7 +50,7 @@ cd {cwd}
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
 
-module load python/3.12 rust swig clang
+module load python/3.12 cuda rust swig clang
 
 tar -xf {venv_origin} -C $SLURM_TMPDIR/$SLURM_JOB_ID
 

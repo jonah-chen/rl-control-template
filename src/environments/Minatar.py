@@ -13,5 +13,4 @@ class Minatar(BaseEnvironment):
     def step(self, action):
         r, t = self.env.act(action)
         sp = self.env.state().astype('float32')
-
         return (sp, r, t, False, {})
