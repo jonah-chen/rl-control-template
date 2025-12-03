@@ -1,0 +1,30 @@
+{
+    "agent": "EQRC",
+    "problem": "Minatar",
+    "total_steps": 5000000,
+    "episode_cutoff": 30000,
+    "metaParameters": {
+        "environment": {
+            "game": ["breakout"]
+        },
+
+        "epsilon": 0.01,
+        "buffer_type": "uniform",
+        "buffer_size": 200000,
+        "batch": 32,
+        "target_refresh": 40000,
+        "update_freq": 2,
+        "optimizer": {
+            "name": "ADAM",
+            "alpha": 6.103515625e-05,
+            "beta1": 0.9,
+            "beta2": 0.999
+        },
+
+        "representation": {
+            "type": "MinatarNet",
+            "hidden": 64,
+            "num_layers": 3 
+        }
+    }
+}

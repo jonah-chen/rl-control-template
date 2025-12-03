@@ -114,7 +114,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
     def _inner(x: jax.Array):
         name = params['type']
         hidden = params['hidden']
-        num_layers = params.get('num_layers') #not 1005 necessary
+        num_layers = params['num_layers']
 
         if name == 'MlpWithRelu':
             layers = reluLayers([hidden] * num_layers, name='phi')

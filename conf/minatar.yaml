@@ -1,0 +1,26 @@
+defaults:
+  - experiment: example/Minatar/EQRC
+  - _self_
+  - override hydra/launcher: joblib
+
+seed: 0
+save_path: null
+checkpoint_path: ./checkpoints/
+silent: true
+gpu: true
+exp_path: null
+
+
+hydra:
+  launcher:
+    n_jobs: 22        # run with 32 CPUs
+
+  sweep:
+    # one subdir per (hidden, num_layers, seed) combo
+    subdir: hidden=${experiment.metaParameters.representation.hidden},layers=${experiment.metaParameters.representation.num_layers}/${seed}
+
+  sweeper:
+    params:
+      seed: 109753,843670,672836,102462,128943,19857,9102481,943862398,27381,19248018,2397391
+      experiment.metaParameters.representation.hidden: 16,64,256
+      experiment.metaParameters.representation.num_layers: 2,3,4
