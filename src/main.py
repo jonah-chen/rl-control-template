@@ -151,6 +151,34 @@ def main(cfg: DictConfig):
     collector.reset()
     csv_file.close()
 
+    # Evaluation
+    eval_episodes = cfg.get('eval_episodes', 0)
+    if eval_episodes > 0:
+        logger.info(f'Starting evaluation for {eval_episodes} episodes')
+        if hasattr(agent, 'epsilon'):
+            setattr(agent, 'epsilon', 0)
+        if hasattr(agent, 'update_freq'):
+            setattr(agent, 'update_freq', float('inf'))
+
+        eval_returns = []
+        for _ in range(eval_episodes):
+            glue.start()
+            term = False
+            while not term:
+                interaction = glue.step()
+                term = interaction.term
+                if exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff:
+                    term = True
+
+            eval_returns.append(glue.total_reward)
+
+        writer.add_histogram('Evaluation/Returns', np.array(eval_returns), global_step=exp.total_steps)
+
+        eval_file = save_root / 'eval_returns.txt'
+        with eval_file.open('w') as f:
+            for ret in eval_returns:
+                f.write(f'{ret}\n')
+
     context = exp.buildSaveContext(idx, base=str(save_root))
     save_path = context.resolve('results.db')
     meta = getParamsAsDict(exp, idx)
