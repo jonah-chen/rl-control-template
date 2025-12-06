@@ -27,7 +27,7 @@ from ml_instrumentation.Collector import Collector
 from ml_instrumentation.Sampler import Identity, Ignore, MovingAverage, Subsample
 from ml_instrumentation.utils import Pipe
 from ml_instrumentation.metadata import attach_metadata
-
+from scheduler import CpuBinder
 from torch.utils.tensorboard import SummaryWriter
 
 # ---------------------------
@@ -39,9 +39,9 @@ def _require_seed(cfg: DictConfig) -> int:
         raise ValueError('Set `seed` in your config; Hydra overrides are optional but the value must exist.')
     return int(seed_value)
 
-
 @hydra.main(config_path='../conf', config_name='episodic', version_base=None)
 def main(cfg: DictConfig):
+  with CpuBinder(cpus_per_job=2):
     original_cwd = Path(get_original_cwd())
     os.chdir(original_cwd)
 

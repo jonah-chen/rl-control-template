@@ -5,7 +5,7 @@ from ml_instrumentation.Collector import Collector
 from experiment.ExperimentModel import ExperimentModel
 
 class Minatar(BaseProblem):
-    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int, game: str):
+    def __init__(self, exp: ExperimentModel, idx: int, collector: Collector, seed: int, game: str = "breakout"):
         super().__init__(exp, idx, collector, seed)
 
         self.env = MiniAtari(game, self.seed)

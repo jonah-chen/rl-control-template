@@ -7,13 +7,13 @@ seed: 0
 save_path: null
 checkpoint_path: ./checkpoints/
 silent: true
-gpu: true
+gpu: false
 exp_path: null
 
 
 hydra:
   launcher:
-    n_jobs: 22        # run with 32 CPUs
+    n_jobs: 12     # run with 32 CPUs
 
   sweep:
     # one subdir per (hidden, num_layers, seed) combo
