@@ -8,8 +8,6 @@ import time
 # --- The Allocator Class ---
 class CpuBinder:
     def __init__(self, lock_file="cpu_registry.json", cpus_per_job=2):
-        if os.path.exists(lock_file):
-            os.remove(lock_file)        
         self.lock_file = lock_file
         self.lock = FileLock(f"{self.lock_file}.lock")
         self.cpus_per_job = cpus_per_job
