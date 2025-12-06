@@ -9,6 +9,7 @@ checkpoint_path: ./checkpoints/
 silent: true
 gpu: false
 exp_path: null
+eval_episodes: 30
 
 
 hydra:
