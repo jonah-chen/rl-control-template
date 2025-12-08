@@ -16,5 +16,6 @@ metaParameters:
     beta1: 0.9
     beta2: 0.999
   representation:
-    type: TwoLayerRelu
-    hidden: 64
+    type: MlpWithRelu
+    hidden: 32
+    num_layers: 2
