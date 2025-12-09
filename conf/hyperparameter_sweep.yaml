@@ -1,0 +1,30 @@
+defaults:
+  - experiment: example/MountainCar/EQRC
+  - _self_
+  - override hydra/launcher: joblib
+
+seed: 0
+save_path: null
+checkpoint_path: ./checkpoints/
+silent: true
+gpu: false
+exp_path: null
+eval_episodes: 50
+
+
+hydra:
+  launcher:
+    n_jobs: 12       # run with 32 CPUs
+
+  sweep:
+    # one subdir per (hidden, num_layers, seed) combo
+    subdir: hidden=${experiment.metaParameters.representation.hidden},layers=${experiment.metaParameters.representation.num_layers}/lr=${experiment.metaParameters.optimizer.alpha},bs=${experiment.metaParameters.batch}/${seed}
+
+  sweeper:
+    params:
+      seed: 1,2,3,4,5
+      # seed: 441355742, 242824383, 865661698, 541362874,  87462263, 969446387, 216540483,  85009166, 822187735, 929055439, 527379004, 735744481, 933241770, 648604730, 407764559, 496564314, 138623048, 645415244, 59112163, 604505118, 539576488, 822104407, 944803669, 149887967, 252145242, 209391921, 486855406, 408449683, 448504446, 159918574, 393227177, 8519438, 608264244,  89267960, 317887052, 454693238,686040269, 581959807, 783561874, 590570059, 360070465, 741699115,440586298, 483490515, 886266641,  88142587, 119357659, 971065677, 621168512, 645338781
+      experiment.metaParameters.optimizer.alpha: 0.001, 0.0003, 0.0001, 0.00003
+      experiment.metaParameters.batch: 32, 64, 128
+      experiment.metaParameters.representation.hidden: 16,32,64,128
+      experiment.metaParameters.representation.num_layers: 1,2,3,4,6,8
