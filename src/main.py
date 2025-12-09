@@ -155,8 +155,8 @@ def main(cfg: DictConfig):
         eval_episodes = cfg.get('eval_episodes', 0)
         if eval_episodes > 0:
             logger.info(f'Starting evaluation for {eval_episodes} episodes')
-            if hasattr(agent, 'epsilon'):
-                setattr(agent, 'epsilon', 0)
+            if hasattr(agent, 'final_epsilon'):
+                setattr(agent, 'final_epsilon', 0)
             if hasattr(agent, 'update_freq'):
                 setattr(agent, 'update_freq', float('inf'))
 
