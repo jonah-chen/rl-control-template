@@ -8,7 +8,9 @@
             "game": ["breakout"]
         },
 
-        "epsilon": 0.01,
+        "init_epsilon": 1.0,
+        "final_epsilon": 0.01,
+        "exploration_steps": 100000,
         "buffer_type": "uniform",
         "buffer_size": 200000,
         "batch": 32,

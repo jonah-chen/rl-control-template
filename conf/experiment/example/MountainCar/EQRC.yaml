@@ -5,10 +5,12 @@ problem: MountainCar
 total_steps: 200000
 episode_cutoff: 5000
 metaParameters:
-  epsilon: 0.1
+  init_epsilon: 1.0
+  final_epsilon: 0.1
+  exploration_steps: 20000
   buffer_type: uniform
   buffer_size: 4000
-  batch: 32
+  batch: 128
   n_step: 1
   optimizer:
     name: ADAM

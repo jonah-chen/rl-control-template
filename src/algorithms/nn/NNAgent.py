@@ -4,7 +4,7 @@ import numpy as np
 import utils.chex as cxu
 
 from abc import abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 from ml_instrumentation.Collector import Collector
 from ReplayTables.interface import Timestep
 from ReplayTables.registry import build_buffer
@@ -31,7 +31,11 @@ class NNAgent(BaseAgent):
         self.rep_params: Dict = params['representation']
         self.optimizer_params: Dict = params['optimizer']
 
-        self.epsilon = params['epsilon']
+        self.init_epsilon = params['init_epsilon']
+        self.final_epsilon = params['final_epsilon']
+        self.exploration_steps = params['exploration_steps']
+        self._epsilon_override: Optional[float] = None
+
         self.reward_clip = params.get('reward_clip', 0)
 
         # ---------------------
@@ -77,6 +81,22 @@ class NNAgent(BaseAgent):
 
         self.steps = 0
         self.updates = 0
+
+    @property
+    def epsilon(self):
+        if self._epsilon_override is not None:
+            return self._epsilon_override
+
+        if self.exploration_steps == 0:
+            return self.init_epsilon
+
+        progress = self.steps / self.exploration_steps
+        progress = min(progress, 1.0)
+        return self.init_epsilon - (self.init_epsilon - self.final_epsilon) * progress
+
+    @epsilon.setter
+    def epsilon(self, value):
+        self._epsilon_override = value
 
     # ------------------------
     # -- NN agent interface --
