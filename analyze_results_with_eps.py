@@ -6,9 +6,6 @@ import matplotlib.pyplot as plt
 import scipy.stats as sp
 import seaborn as sns
 
-# Constant to replace -5000 (failure) in unfiltered average calculation
-FAILURE_REPLACEMENT = -5000
-
 def analyze_results(base_dir):
     results = []
 
@@ -59,22 +56,19 @@ def analyze_results(base_dir):
             # Iterate through dynamically found seeds
             for seed in unique_seeds:
                 seed_dir = os.path.join(lr_bs_dir, str(seed))
-                eval_file = os.path.join(seed_dir, "eval_returns.txt")
-
-                current_seed_failures = 0
-                if os.path.exists(eval_file):
-                    try:
-                        with open(eval_file, 'r') as f:
-                            # Read lines, convert to float
-                            seed_returns = [float(line.strip()) for line in f if line.strip()]
-                            all_returns.extend(seed_returns)
-                            current_seed_failures = sum(1 for r in seed_returns if r <= -5000)
-                    except Exception as e:
-                        print(f"Error reading {eval_file}: {e}")
-                else:
-                    print(f"Warning: {eval_file} not found")
-
-                failures_per_seed.append(current_seed_failures)
+                eval_file = os.path.join(seed_dir, "metrics.csv")
+                metrics = np.loadtxt(eval_file, skiprows=1, delimiter=',')
+                step = metrics[:,0]
+                returns = metrics[:,1]
+                returns = returns[step < 195000]
+                step = step[step < 195000]
+                # add the step = 195000 point with the last return value
+                step = np.append(step, 195000)
+                returns = np.append(returns, returns[-1])
+                auc = np.trapezoid(returns, step) / 195000
+                # Read lines, convert to float
+                # all_returns.append(auc)
+                all_returns.extend(returns[-25:])
 
             failures_per_seed.sort()
             failures_per_seed_str = ", ".join(map(str, failures_per_seed))
@@ -83,7 +77,7 @@ def analyze_results(base_dir):
             if all_returns:
                 total_count = len(all_returns)
                 # Count failures
-                failure_count = sum(1 for r in all_returns if r <= -5000)
+                failure_count = 0
 
                 avg_return = np.mean(all_returns)
                 # Check for constant values to avoid bootstrap errors/warnings
@@ -142,8 +136,8 @@ def generate_heatmaps(df):
         if subset.empty:
             continue
 
-        # Create figure with two subplots
-        fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+        # Create figure with one subplot
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         fig.suptitle(f'Hidden: {hidden}, Layers: {layers}', fontsize=16)
 
         # Plot 1: Average Return (Filtered)
@@ -161,29 +155,16 @@ def generate_heatmaps(df):
                 else:
                     annot_filtered.loc[r, c] = ""
 
-        sns.heatmap(pivot_filtered, annot=annot_filtered, fmt="", cmap="Greens", ax=axes[0])
-        axes[0].set_title('Average Return (Raw)\nMean\n(Std)')
-        axes[0].set_xlabel('Learning Rate')
-        axes[0].set_ylabel('Batch Size')
-
-        # Plot 2: Failure Count
-        pivot_failure = subset.pivot(index='bs', columns='lr', values='failure_count')
-        pivot_failures_per_seed = subset.pivot(index='bs', columns='lr', values='failures_per_seed')
-
-        # Create annotation matrix for Plot 2
-        annot_failure = pivot_failure.map(lambda x: f"{x:.1f}")
-
-        sns.heatmap(pivot_failure, annot=annot_failure, fmt="", cmap="Reds", ax=axes[1])
-        axes[1].set_title('Failure Count (out of 250)\nTotal\n(Per Seed Sorted)')
-        axes[1].set_xlabel('Learning Rate')
-        axes[1].set_ylabel('Batch Size')
+        sns.heatmap(pivot_filtered, annot=annot_filtered, fmt="", cmap="Greens", ax=ax)
+        ax.set_xlabel('Learning Rate')
+        ax.set_ylabel('Batch Size')
 
         plt.tight_layout()
-        filename = f"heatmap_hidden{hidden}_layers{layers}.png"
+        filename = f"eps_hidden{hidden}_layers{layers}.png"
         plt.savefig(filename)
         print(f"Saved heatmap to {filename}")
         plt.close()
-
+    
 if __name__ == "__main__":
     base_directory = "multirun/2025-12-08/11-20-59"  # Change this to your results directory
     analyze_results(base_directory)
