@@ -12,7 +12,7 @@ FAILURE_REPLACEMENT = -5000
 def analyze_results(base_dir):
     results = []
     
-    SEEDS = [i for i in range(1011, 51011, 1000)]
+    SEEDS = [*range(1, 11)]  # Seeds 1 to 25
     # Walk through the directory structure
     # Expected structure: base_dir / hidden=...,layers=... / lr=...,bs=... / seed / eval_returns.txt
     
@@ -77,23 +77,22 @@ def analyze_results(base_dir):
             # Process results for this configuration
             if all_returns:
                 total_count = len(all_returns)
-                # Filter out -5000
-                valid_returns = [r for r in all_returns if r > -5001]
-                failure_count = total_count - len(valid_returns)
+                # Count failures
+                failure_count = sum(1 for r in all_returns if r <= -5000)
                 
-                if valid_returns:
-                    avg_return = np.mean(valid_returns)
-                    std_return = sp.bootstrap((valid_returns,), lambda x: np.mean(x)).confidence_interval.high - avg_return
+                avg_return = np.mean(all_returns)
+                # Check for constant values to avoid bootstrap errors/warnings
+                if np.min(all_returns) == np.max(all_returns):
+                    std_return = 0.0
                 else:
-                    avg_return = np.nan # Or some other indicator if all failed
-                    std_return = np.nan
+                    res = sp.bootstrap((all_returns,), np.mean)
+                    std_return = res.confidence_interval.high - avg_return
+                    if np.isnan(std_return):
+                        std_return = np.nan
                 
-                # Calculate unfiltered average with adjustment
-                # Replace failures (-5000) with FAILURE_REPLACEMENT
-                adjusted_returns = [r if r > -5000 else FAILURE_REPLACEMENT for r in all_returns]
-                avg_return_unfiltered = np.mean(adjusted_returns)
-                std_return_unfiltered = sp.bootstrap((adjusted_returns,), lambda x: np.mean(x)).confidence_interval.high - avg_return
-                #size of 95% CI (one-sided)
+                # Unfiltered is now the same as average_return
+                avg_return_unfiltered = avg_return
+                std_return_unfiltered = std_return
 
                 results.append({
                     "hidden": hidden,
@@ -147,10 +146,18 @@ def generate_heatmaps(df):
         pivot_std_filtered = subset.pivot(index='bs', columns='lr', values='std_return')
         
         # Create annotation matrix for Plot 1
-        annot_filtered = pivot_filtered.applymap(lambda x: f"{x:.1f}")
+        annot_filtered = pivot_filtered.copy().astype(object)
+        for r in pivot_filtered.index:
+            for c in pivot_filtered.columns:
+                val = pivot_filtered.loc[r, c]
+                std = pivot_std_filtered.loc[r, c]
+                if pd.notna(val):
+                    annot_filtered.loc[r, c] = f"{val:.1f}\n({std:.1f})"
+                else:
+                    annot_filtered.loc[r, c] = ""
         
         sns.heatmap(pivot_filtered, annot=annot_filtered, fmt="", cmap="Greens", ax=axes[0])
-        axes[0].set_title('Average Return (Filtered > -5000)\nMean\n(Std)')
+        axes[0].set_title('Average Return (Raw)\nMean\n(Std)')
         axes[0].set_xlabel('Learning Rate')
         axes[0].set_ylabel('Batch Size')
         
@@ -159,7 +166,7 @@ def generate_heatmaps(df):
         pivot_failures_per_seed = subset.pivot(index='bs', columns='lr', values='failures_per_seed')
         
         # Create annotation matrix for Plot 2
-        annot_failure = pivot_failure.applymap(lambda x: f"{x:.1f}")
+        annot_failure = pivot_failure.map(lambda x: f"{x:.1f}")
         
         sns.heatmap(pivot_failure, annot=annot_failure, fmt="", cmap="Reds", ax=axes[1])
         axes[1].set_title('Failure Count (out of 250)\nTotal\n(Per Seed Sorted)')
@@ -174,5 +181,5 @@ def generate_heatmaps(df):
 
 
 if __name__ == "__main__":
-    base_dir = "."
+    base_dir = "/home/jonah/rl-control-template/multirun/2025-12-10/22-39-24"
     analyze_results(base_dir)
