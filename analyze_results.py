@@ -3,14 +3,16 @@ import pandas as pd
 import numpy as np
 import glob
 import matplotlib.pyplot as plt
+import scipy.stats as sp
 import seaborn as sns
 
 # Constant to replace -5000 (failure) in unfiltered average calculation
-FAILURE_REPLACEMENT = -3000
+FAILURE_REPLACEMENT = -5000
 
 def analyze_results(base_dir):
     results = []
     
+    SEEDS = [i for i in range(1011, 51011, 1000)]
     # Walk through the directory structure
     # Expected structure: base_dir / hidden=...,layers=... / lr=...,bs=... / seed / eval_returns.txt
     
@@ -50,7 +52,7 @@ def analyze_results(base_dir):
             failures_per_seed = []
             
             # Iterate through seeds 1 to 5
-            for seed in range(1, 6):
+            for seed in SEEDS:
                 seed_dir = os.path.join(lr_bs_dir, str(seed))
                 eval_file = os.path.join(seed_dir, "eval_returns.txt")
                 
@@ -76,12 +78,12 @@ def analyze_results(base_dir):
             if all_returns:
                 total_count = len(all_returns)
                 # Filter out -5000
-                valid_returns = [r for r in all_returns if r > -5000]
+                valid_returns = [r for r in all_returns if r > -5001]
                 failure_count = total_count - len(valid_returns)
                 
                 if valid_returns:
                     avg_return = np.mean(valid_returns)
-                    std_return = np.std(valid_returns)
+                    std_return = sp.bootstrap((valid_returns,), lambda x: np.mean(x)).confidence_interval.high - avg_return
                 else:
                     avg_return = np.nan # Or some other indicator if all failed
                     std_return = np.nan
@@ -90,7 +92,8 @@ def analyze_results(base_dir):
                 # Replace failures (-5000) with FAILURE_REPLACEMENT
                 adjusted_returns = [r if r > -5000 else FAILURE_REPLACEMENT for r in all_returns]
                 avg_return_unfiltered = np.mean(adjusted_returns)
-                std_return_unfiltered = np.std(adjusted_returns)
+                std_return_unfiltered = sp.bootstrap((adjusted_returns,), lambda x: np.mean(x)).confidence_interval.high - avg_return
+                #size of 95% CI (one-sided)
 
                 results.append({
                     "hidden": hidden,
@@ -144,9 +147,9 @@ def generate_heatmaps(df):
         pivot_std_filtered = subset.pivot(index='bs', columns='lr', values='std_return')
         
         # Create annotation matrix for Plot 1
-        annot_filtered = pivot_filtered.applymap(lambda x: f"{x:.0f}") + "\n(" + pivot_std_filtered.applymap(lambda x: f"{x:.0f}") + ")"
+        annot_filtered = pivot_filtered.applymap(lambda x: f"{x:.1f}")
         
-        sns.heatmap(pivot_filtered, annot=annot_filtered, fmt="", cmap="viridis", ax=axes[0])
+        sns.heatmap(pivot_filtered, annot=annot_filtered, fmt="", cmap="Greens", ax=axes[0])
         axes[0].set_title('Average Return (Filtered > -5000)\nMean\n(Std)')
         axes[0].set_xlabel('Learning Rate')
         axes[0].set_ylabel('Batch Size')
@@ -156,7 +159,7 @@ def generate_heatmaps(df):
         pivot_failures_per_seed = subset.pivot(index='bs', columns='lr', values='failures_per_seed')
         
         # Create annotation matrix for Plot 2
-        annot_failure = pivot_failure.applymap(lambda x: f"{x:.0f}") + "\n(" + pivot_failures_per_seed.astype(str) + ")"
+        annot_failure = pivot_failure.applymap(lambda x: f"{x:.1f}")
         
         sns.heatmap(pivot_failure, annot=annot_failure, fmt="", cmap="Reds", ax=axes[1])
         axes[1].set_title('Failure Count (out of 250)\nTotal\n(Per Seed Sorted)')
@@ -171,5 +174,5 @@ def generate_heatmaps(df):
 
 
 if __name__ == "__main__":
-    base_dir = "multirun/2025-12-08/07-00-36"
+    base_dir = "."
     analyze_results(base_dir)
